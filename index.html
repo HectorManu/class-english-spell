@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Bee - Honeycomb Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: #FFD700; /* Gold */
+            background-image:
+                linear-gradient(135deg, rgba(255, 235, 59, 0.8) 25%, transparent 25%),
+                linear-gradient(225deg, rgba(255, 235, 59, 0.8) 25%, transparent 25%),
+                linear-gradient(45deg, rgba(255, 235, 59, 0.8) 25%, transparent 25%),
+                linear-gradient(315deg, rgba(255, 235, 59, 0.8) 25%, #FFD700 25%);
+            background-position: 40px 0, 40px 0, 0 0, 0 0;
+            background-size: 80px 80px;
+            background-repeat: repeat;
+            overflow-x: hidden; /* Prevent horizontal scroll from confetti */
+        }
+
+        .font-bangers {
+            font-family: 'Bangers', cursive;
+        }
+
+        .hexagon {
+            position: relative;
+            width: 100px;
+            height: 57.74px;
+            background-color: #FFC107; /* Amber */
+            margin: 28.87px 0;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4A2C2A;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .hexagon:before,
+        .hexagon:after {
+            content: "";
+            position: absolute;
+            width: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .hexagon:before {
+            bottom: 100%;
+            border-bottom: 28.87px solid #FFC107; /* Amber */
+        }
+
+        .hexagon:after {
+            top: 100%;
+            width: 0;
+            border-top: 28.87px solid #FFC107; /* Amber */
+        }
+        
+        .hexagon:hover {
+            transform: scale(1.1);
+            background-color: #FFA000; /* Orange */
+        }
+        .hexagon:hover:before {
+            border-bottom-color: #FFA000;
+        }
+        .hexagon:hover:after {
+            border-top-color: #FFA000;
+        }
+
+        .hexagon.completed {
+            background-color: #4A2C2A; /* Dark Brown */
+            color: #FFD700;
+        }
+        .hexagon.completed:before {
+            border-bottom-color: #4A2C2A;
+        }
+        .hexagon.completed:after {
+            border-top-color: #4A2C2A;
+        }
+        
+        .fade-in {
+          animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        #audio-button.playing {
+            background-color: #4CAF50; /* Green */
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1.1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { transform: scale(1.2); box-shadow: 0 0 10px 20px rgba(76, 175, 80, 0); }
+            100% { transform: scale(1.1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+        
+        /* UPDATED: Confetti styles */
+        .confetti-particle {
+            position: fixed; /* Use fixed to cover the whole viewport */
+            top: -20px; /* Start above the screen */
+            opacity: 1;
+            z-index: 1000;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(0px) rotateZ(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(105vh) rotateZ(720deg);
+                opacity: 0;
+            }
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="container mx-auto max-w-4xl relative">
+        <!-- Main Board -->
+        <div id="main-board" class="board bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border-4 border-amber-900">
+            <header class="text-center mb-8">
+                <h1 class="font-bangers text-6xl text-amber-900 drop-shadow-lg">🐝 Spelling Bee 🐝</h1>
+                <p class="text-2xl text-amber-800 mt-2">Honeycomb Challenge</p>
+                <div class="mt-6 bg-amber-100 p-4 rounded-lg shadow-inner border border-amber-300">
+                    <p id="progress-text" class="text-xl font-bold text-amber-900">Progress: 0/50 words completed</p>
+                    <p class="text-sm text-amber-700 mt-2">⚠️ Your progress is saved for this session only.</p>
+                    <button id="reset-button" class="mt-4 bg-amber-800 hover:bg-amber-900 text-white font-bold py-2 px-6 rounded-full shadow-lg transition-transform transform hover:scale-105">🔄 Reset Progress</button>
+                </div>
+            </header>
+            
+            <div id="upper-section">
+                <h2 class="font-bangers text-4xl text-center text-amber-900 mb-4">Upper Hive</h2>
+                <div class="flex flex-wrap justify-center gap-4" id="upper-tiles"></div>
+            </div>
+            
+            <div id="intermediate-section" class="mt-12">
+                 <h2 class="font-bangers text-4xl text-center text-amber-900 mb-4">Intermediate Hive</h2>
+                <div class="flex flex-wrap justify-center gap-4" id="intermediate-tiles"></div>
+            </div>
+        </div>
+        
+        <!-- Word Practice Page -->
+        <div id="word-practice" class="hidden bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border-4 border-amber-900 text-center">
+             <header>
+                <h1 class="font-bangers text-5xl text-amber-900 drop-shadow-lg">📝 Practice Time!</h1>
+            </header>
+            
+            <div class="word-controls mt-8">
+                <div class="word-info mb-6">
+                    <p id="word-number" class="text-3xl font-bold text-amber-900">Word #1</p>
+                    <p id="word-level" class="text-xl text-amber-700">UPPER HIVE</p>
+                </div>
+                
+                <button id="audio-button" class="bg-amber-500 hover:bg-amber-600 text-white rounded-full w-24 h-24 flex items-center justify-center mx-auto shadow-lg transition-transform transform hover:scale-110" title="Click to hear the word pronunciation">
+                    <span class="text-5xl">🔊</span>
+                </button>
+                <p class="text-amber-800 mt-2">Click the speaker to hear the word</p>
+                
+                <div class="input-section mt-8">
+                    <input type="text" id="word-input" class="w-full max-w-md p-4 text-2xl text-center border-4 border-amber-400 rounded-lg shadow-inner focus:outline-none focus:ring-4 focus:ring-amber-500 transition" placeholder="Type the word here..." autocomplete="off">
+                    
+                    <div class="mt-6">
+                        <button id="check-button" class="bg-amber-800 hover:bg-amber-900 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full shadow-lg transition-transform transform hover:scale-105 text-2xl" title="Check if your spelling is correct">✓ Check Answer</button>
+                    </div>
+                </div>
+                
+                <div id="feedback" class="mt-6 p-4 rounded-lg text-white font-bold text-xl hidden"></div>
+            </div>
+            
+            <button id="back-button" class="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition-transform transform hover:scale-105">⬅️ Back to Hive</button>
+        </div>
+    </div>
+
+    <script>
+        // --- WORD LISTS ---
+        const words = {
+            upper: ['demonstrate', 'purchase', 'approach', 'sneeze', 'drowsiness', 'lacking', 'obsessively', 'dangle', 'simultaneously', 'realized', 'aware', 'bearing', 'lightning', 'confined', 'drizzling'],
+            intermediate: ['frightening', 'tired', 'disappointed', 'poisonous', 'eventually', 'twice', 'interested', 'business', 'lovely', 'manager', 'chance', 'unless', 'pupils', 'bookcase', 'nursery', 'pillow', 'reluctant', 'powder', 'colleague', 'wife', 'trust', 'isolated', 'lamb', 'cabbage', 'beetroot', 'mussels', 'raw', 'nephew', 'earn', 'owe', 'inherit', 'afford', 'courgette', 'niece', 'spend']
+        };
+        const allWords = [...words.upper, ...words.intermediate];
+
+        // --- STATE VARIABLES ---
+        let currentWordIndex = 0;
+        let completedWords = new Set();
+        let voices = [];
+
+        // --- DOM ELEMENTS ---
+        const mainBoard = document.getElementById('main-board');
+        const wordPractice = document.getElementById('word-practice');
+        const upperTiles = document.getElementById('upper-tiles');
+        const intermediateTiles = document.getElementById('intermediate-tiles');
+        const audioButton = document.getElementById('audio-button');
+        const wordInput = document.getElementById('word-input');
+        const backButton = document.getElementById('back-button');
+        const wordNumber = document.getElementById('word-number');
+        const wordLevel = document.getElementById('word-level');
+        const checkButton = document.getElementById('check-button');
+        const feedback = document.getElementById('feedback');
+        const progressText = document.getElementById('progress-text');
+        const resetButton = document.getElementById('reset-button');
+
+        // --- FUNCTIONS ---
+
+        function checkSpelling() {
+            const userInput = wordInput.value.trim().toLowerCase();
+            if (userInput === '') {
+                showCustomAlert('Please type a word before checking!');
+                return;
+            }
+            const correctWord = allWords[currentWordIndex].toLowerCase();
+            if (userInput === correctWord) {
+                showFeedback(true, allWords[currentWordIndex]);
+                markWordCompleted(currentWordIndex);
+            } else {
+                showFeedback(false, allWords[currentWordIndex]);
+            }
+        }
+
+        function showFeedback(isCorrect, correctWord) {
+            feedback.style.display = 'block';
+            feedback.classList.remove('hidden', 'bg-green-600', 'bg-red-600');
+            let content = '';
+            if (isCorrect) {
+                feedback.classList.add('bg-green-600');
+                content = `🎉 Excellent! Perfect spelling! 🎉`;
+                showConfetti(); 
+            } else {
+                feedback.classList.add('bg-red-600');
+                content = `📚 Not quite. The correct spelling is: <strong class="block text-2xl mt-1">${correctWord}</strong>`;
+            }
+            feedback.innerHTML = content;
+        }
+
+        function hideFeedback() {
+            feedback.style.display = 'none';
+        }
+        
+        function createTile(number) {
+            const tileContainer = document.createElement('div');
+            tileContainer.className = 'hexagon';
+            tileContainer.textContent = number;
+            tileContainer.dataset.wordIndex = number - 1;
+            tileContainer.addEventListener('click', () => navigateToWord(number - 1));
+            return tileContainer;
+        }
+
+        function createAllTiles() {
+            upperTiles.innerHTML = '';
+            intermediateTiles.innerHTML = '';
+            for (let i = 1; i <= 15; i++) upperTiles.appendChild(createTile(i));
+            for (let i = 16; i <= 50; i++) intermediateTiles.appendChild(createTile(i));
+        }
+        
+        function setupEventListeners() {
+            audioButton.addEventListener('click', playAudio);
+            checkButton.addEventListener('click', checkSpelling);
+            resetButton.addEventListener('click', resetProgress);
+            backButton.addEventListener('click', navigateToBoard);
+            
+            wordInput.addEventListener('input', () => {
+                hideFeedback();
+                checkButton.disabled = wordInput.value.trim().length === 0;
+            });
+            
+            wordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !checkButton.disabled) {
+                    e.preventDefault();
+                    checkSpelling();
+                }
+            });
+        }
+        
+        function navigateToWord(index) {
+            if (index >= 0 && index < allWords.length) showWordPractice(index);
+        }
+
+        function navigateToBoard() {
+            wordPractice.classList.add('hidden');
+            mainBoard.classList.remove('hidden');
+            mainBoard.classList.add('fade-in');
+            document.title = 'Spelling Bee - Honeycomb Edition';
+        }
+        
+        function showWordPractice(index) {
+            currentWordIndex = index;
+            const wordNum = index + 1;
+            const level = index < 15 ? 'UPPER' : 'INTERMEDIATE';
+            
+            mainBoard.classList.add('hidden');
+            wordPractice.classList.remove('hidden');
+            wordPractice.classList.add('fade-in');
+            
+            wordNumber.textContent = `Word #${wordNum}`;
+            wordLevel.textContent = `${level} HIVE`;
+            wordInput.value = '';
+            checkButton.disabled = true;
+            hideFeedback();
+            
+            setTimeout(() => wordInput.focus(), 100);
+            document.title = `Spelling Bee - Word ${wordNum}`;
+        }
+        
+        function playAudio() {
+            const word = allWords[currentWordIndex];
+            if (!('speechSynthesis' in window) || speechSynthesis.speaking) return;
+            
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(word);
+            
+            utterance.onstart = () => audioButton.classList.add('playing');
+            utterance.onend = () => audioButton.classList.remove('playing');
+            utterance.onerror = () => audioButton.classList.remove('playing');
+
+            let selectedVoice = voices.find(v => v.lang === 'en-GB' && v.name.includes('Google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en-'));
+            utterance.voice = selectedVoice;
+            utterance.rate = 0.8;
+            speechSynthesis.speak(utterance);
+        }
+
+        function loadVoices() {
+            return new Promise((resolve) => {
+                voices = speechSynthesis.getVoices();
+                if (voices.length) {
+                    resolve(voices);
+                    return;
+                }
+                speechSynthesis.onvoiceschanged = () => {
+                    voices = speechSynthesis.getVoices();
+                    resolve(voices);
+                };
+            });
+        }
+
+        function updateProgress() {
+            const completed = completedWords.size;
+            const total = allWords.length;
+            progressText.textContent = `Progress: ${completed}/${total} words completed`;
+            
+            document.querySelectorAll('.hexagon').forEach(tile => {
+                const index = parseInt(tile.dataset.wordIndex, 10);
+                if (completedWords.has(index)) {
+                    tile.classList.add('completed');
+                } else {
+                    tile.classList.remove('completed');
+                }
+            });
+        }
+
+        function markWordCompleted(wordIndex) {
+            if (!completedWords.has(wordIndex)) {
+                completedWords.add(wordIndex);
+                updateProgress();
+            }
+        }
+
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset all your progress?')) {
+                completedWords.clear();
+                updateProgress();
+            }
+        }
+        
+        function showCustomAlert(message) {
+            alert(message);
+        }
+
+        // --- UPDATED: Confetti Function ---
+        function showConfetti() {
+            const confettiContainer = document.body;
+            const confettiCount = 150;
+            const confettiColors = ['#FFD700', '#FFC107', '#FFA000', '#FFFFFF', '#4A2C2A'];
+
+            for (let i = 0; i < confettiCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'confetti-particle';
+                
+                const xPos = Math.random() * 100 + 'vw';
+                const duration = Math.random() * 3 + 2; // 2-5 seconds
+                const delay = Math.random() * 1;
+                const size = Math.floor(Math.random() * 15) + 8;
+                const color = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+
+                particle.style.left = xPos;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.backgroundColor = color;
+                
+                if (Math.random() > 0.25) {
+                    particle.style.borderRadius = '50%';
+                } else {
+                    particle.style.height = (size * 0.6) + 'px';
+                }
+
+                particle.style.animation = `confetti-fall ${duration}s linear ${delay}s forwards`;
+
+                confettiContainer.appendChild(particle);
+
+                setTimeout(() => {
+                    particle.remove();
+                }, (duration + delay) * 1000);
+            }
+        }
+
+        // --- INITIALIZATION ---
+        function init() {
+            createAllTiles();
+            setupEventListeners();
+            updateProgress();
+            if ('speechSynthesis' in window) {
+                loadVoices();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
